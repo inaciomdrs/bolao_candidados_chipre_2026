@@ -1,0 +1,144 @@
+// Prisma schema for Bolão — 2026 Chess Candidates Tournament
+// Supports SQLite (dev) and PostgreSQL (prod) via DATABASE_URL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int       @id @default(autoincrement())
+  email        String    @unique
+  name         String
+  role         String    @default("boleiro") // boleiro | gerente
+  passwordHash String
+  totpSecret   String?   // AES-GCM encrypted
+  totpEnabled  Boolean   @default(false)
+  backupCodes  String?   // JSON array of hashed backup codes
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  sessions      Session[]
+  bets          Bet[]
+  notifications Notification[]
+  championships Championship[]
+  leaderboard   LeaderboardEntry[]
+}
+
+model Session {
+  id        String   @id @default(uuid())
+  userId    Int
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  data      String?  // JSON for extra session data
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Championship {
+  id          Int      @id @default(autoincrement())
+  name        String
+  slug        String   @unique
+  timezone    String   @default("America/Sao_Paulo")
+  description String?
+  createdById Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy   User    @relation(fields: [createdById], references: [id])
+  rounds      Round[]
+  matches     Match[]
+  leaderboard LeaderboardEntry[]
+
+  @@index([createdById])
+}
+
+model Round {
+  id             Int    @id @default(autoincrement())
+  championshipId Int
+  name           String
+  roundNumber    Int
+  order          Int
+
+  championship Championship @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+  matches      Match[]
+
+  @@index([championshipId])
+}
+
+model Match {
+  id             Int      @id @default(autoincrement())
+  championshipId Int
+  roundId        Int
+  playerWhite    String
+  playerBlack    String
+  startDatetime  DateTime // stored as UTC
+  status         String   @default("scheduled") // scheduled | ongoing | finished
+  resultCode     String?  // white_win | draw | black_win
+  resultDetails  String?  // optional notation / description
+  venue          String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  championship Championship @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+  round        Round        @relation(fields: [roundId], references: [id], onDelete: Cascade)
+  bets         Bet[]
+
+  @@index([championshipId])
+  @@index([roundId])
+  @@index([startDatetime])
+}
+
+model Bet {
+  id               Int       @id @default(autoincrement())
+  userId           Int
+  matchId          Int
+  predictedOutcome String    // white_win | draw | black_win
+  predictedWinner  String?   // white | black | null (null for draw predictions)
+  lockedAt         DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  match Match @relation(fields: [matchId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, matchId])
+  @@index([matchId])
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  type      String   // bet_locked | result_published | leaderboard_change | announcement
+  payload   String   // JSON
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, isRead])
+}
+
+model LeaderboardEntry {
+  id             Int      @id @default(autoincrement())
+  userId         Int
+  championshipId Int
+  totalPoints    Int      @default(0)
+  totalBets      Int      @default(0)
+  correctBets    Int      @default(0)
+  lastUpdate     DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  championship Championship @relation(fields: [championshipId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, championshipId])
+  @@index([championshipId])
+}
