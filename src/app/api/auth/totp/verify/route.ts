@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticator } from 'otplib';
+import { verify } from 'otplib';
 import prisma from '@/lib/prisma';
 import { decrypt } from '@/lib/crypto';
 import { cookies } from 'next/headers';
@@ -53,7 +53,8 @@ export async function POST(request: NextRequest) {
         if (token) {
             // Verify TOTP token
             const secret = decrypt(user.totpSecret);
-            verified = authenticator.verify({ token, secret });
+            const { valid } = await verify({ token, secret });
+            verified = valid;
         } else if (backupCode) {
             // Verify backup code
             if (user.backupCodes) {

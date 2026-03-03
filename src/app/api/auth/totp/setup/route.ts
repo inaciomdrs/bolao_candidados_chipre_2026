@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authenticator } from 'otplib';
+import { generateSecret, verify, generateURI } from 'otplib';
 import QRCode from 'qrcode';
 import prisma from '@/lib/prisma';
-import { encrypt, generateBackupCodes } from '@/lib/crypto';
+import { encrypt, decrypt, generateBackupCodes } from '@/lib/crypto';
 import { getSessionUser } from '@/lib/sessions';
 import bcrypt from 'bcrypt';
 
@@ -29,9 +29,13 @@ export async function GET() {
         }
 
         const issuer = process.env.TOTP_ISSUER || 'Bolao-2026';
-        const secret = authenticator.generateSecret();
+        const secret = generateSecret();
 
-        const otpauthUrl = authenticator.keyuri(user.email, issuer, secret);
+        const otpauthUrl = generateURI({
+            issuer,
+            label: user.email,
+            secret,
+        });
         const qrCodeDataUrl = await QRCode.toDataURL(otpauthUrl);
 
         // Temporarily store the secret encrypted (not yet confirmed)
@@ -91,9 +95,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Decrypt and verify the token
-        const { decrypt } = await import('@/lib/crypto');
         const secret = decrypt(user.totpSecret);
-        const isValid = authenticator.verify({ token, secret });
+        const { valid: isValid } = await verify({ token, secret });
 
         if (!isValid) {
             return NextResponse.json(
