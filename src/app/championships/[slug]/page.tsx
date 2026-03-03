@@ -55,6 +55,7 @@ export default async function ChampionshipDetailPage({ params }: Props) {
     }
 
     function formatTime(date: Date) {
+        if (!championship) return '';
         return new Intl.DateTimeFormat('pt-BR', {
             hour: '2-digit',
             minute: '2-digit',
