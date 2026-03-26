@@ -14,6 +14,13 @@ export const registerRateLimiter = new RateLimiterMemory({
     keyPrefix: 'register',
 });
 
+// Rate limiter for forgot-password: max 5 per 30 minutes per email
+export const forgotPasswordRateLimiter = new RateLimiterMemory({
+    points: 5,
+    duration: 1800, // 30 minutes in seconds
+    keyPrefix: 'forgot_password',
+});
+
 // General API rate limiter: max 60 per minute per IP
 export const apiRateLimiter = new RateLimiterMemory({
     points: 60,

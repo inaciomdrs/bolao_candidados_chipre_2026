@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
             where: { email: email.toLowerCase() },
         });
 
-        if (!user || !user.isActive) {
+        if (!user || !user.isActive || user.deletedAt) {
             return NextResponse.json(
                 { error: 'Email ou senha incorretos.' },
                 { status: 401 }
@@ -50,7 +50,9 @@ export async function POST(request: NextRequest) {
         // If TOTP is enabled, require verification
         if (user.totpEnabled) {
             // Create a temporary session that requires TOTP
-            const sessionId = await createSession(user.id);
+            const userAgent = request.headers.get('user-agent') || undefined;
+            const ipAddress = request.headers.get('x-forwarded-for') || undefined;
+            const sessionId = await createSession(user.id, { userAgent, ipAddress });
 
             // Store that this session needs TOTP verification
             await prisma.session.update({
@@ -67,7 +69,9 @@ export async function POST(request: NextRequest) {
         }
 
         // Create full session
-        const sessionId = await createSession(user.id);
+        const userAgent = request.headers.get('user-agent') || undefined;
+        const ipAddress = request.headers.get('x-forwarded-for') || undefined;
+        const sessionId = await createSession(user.id, { userAgent, ipAddress });
         await setSessionCookie(sessionId);
 
         return NextResponse.json({

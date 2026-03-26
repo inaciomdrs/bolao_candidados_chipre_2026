@@ -128,6 +128,11 @@ export default function LoginPage() {
                             <button type="submit" className="btn btn-primary btn-lg w-full" disabled={loading}>
                                 {loading ? <span className="spinner" /> : 'Entrar'}
                             </button>
+                            <div className="text-right mt-sm" style={{ marginTop: '8px', textAlign: 'right' }}>
+                                <Link href="/auth/forgot-password" style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                    Esqueci minha senha
+                                </Link>
+                            </div>
                         </form>
                     ) : (
                         <form onSubmit={handleTotpVerify}>

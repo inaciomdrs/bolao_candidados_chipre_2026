@@ -83,6 +83,9 @@ export default function Navbar() {
                             <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                                 {user.name}
                             </span>
+                            <Link href="/account" className="btn btn-sm btn-ghost" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>
+                                Minha Conta
+                            </Link>
                             {!user.totpEnabled && (
                                 <Link href="/auth/totp-setup" className="btn btn-sm btn-secondary">
                                     Ativar 2FA

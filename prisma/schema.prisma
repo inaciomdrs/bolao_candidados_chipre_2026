@@ -20,22 +20,28 @@ model User {
   totpEnabled  Boolean   @default(false)
   backupCodes  String?   // JSON array of hashed backup codes
   isActive     Boolean   @default(true)
+  deletedAt    DateTime? // soft-delete timestamp
+  deletedById  Int?      // self-deletion → own id; manager deletion → manager id
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  sessions      Session[]
-  bets          Bet[]
-  notifications Notification[]
-  championships Championship[]
-  leaderboard   LeaderboardEntry[]
+  sessions            Session[]
+  bets                Bet[]
+  notifications       Notification[]
+  championships       Championship[]
+  leaderboard         LeaderboardEntry[]
+  passwordResetTokens PasswordResetToken[]
 }
 
 model Session {
-  id        String   @id @default(uuid())
-  userId    Int
-  expiresAt DateTime
-  createdAt DateTime @default(now())
-  data      String?  // JSON for extra session data
+  id           String   @id @default(uuid())
+  userId       Int
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  data         String?  // JSON for extra session data
+  userAgent    String?  // truncated user-agent string
+  ipAddress    String?  // hashed or truncated IP
+  lastActiveAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -141,4 +147,30 @@ model LeaderboardEntry {
 
   @@unique([userId, championshipId])
   @@index([championshipId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    Int
+  tokenHash String    // SHA-256 hash of the raw token
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  actorId   Int      // user who performed the action
+  targetId  Int?     // affected user (if applicable)
+  action    String   // e.g., "password_reset_forced", "totp_disabled", "account_deleted"
+  metadata  String?  // JSON with extra context
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([targetId])
 }

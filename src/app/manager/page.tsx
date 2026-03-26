@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import Navbar from '@/components/Navbar';
 
 export default function ManagerPage() {
-    const [tab, setTab] = useState<'championships' | 'rounds' | 'matches' | 'results'>('championships');
+    const [tab, setTab] = useState<'championships' | 'rounds' | 'matches' | 'results' | 'users'>('championships');
 
     // Championships
     const [championships, setChampionships] = useState<any[]>([]);
@@ -31,6 +31,10 @@ export default function ManagerPage() {
     const [resultCode, setResultCode] = useState('');
     const [resultDetails, setResultDetails] = useState('');
 
+    // Users
+    const [users, setUsers] = useState<any[]>([]);
+    const [userSearch, setUserSearch] = useState('');
+
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -38,6 +42,53 @@ export default function ManagerPage() {
     useEffect(() => {
         fetchChampionships();
     }, []);
+
+    useEffect(() => {
+        if (tab === 'users' && users.length === 0) {
+            fetchUsers();
+        }
+    }, [tab, users.length]);
+
+    async function fetchUsers() {
+        setLoading(true); setError('');
+        try {
+            const res = await fetch('/api/manager/users');
+            if (res.ok) {
+                const data = await res.json();
+                setUsers(data.users || []);
+            }
+        } catch { } finally { setLoading(false); }
+    }
+
+    async function handleForceReset(id: number) {
+        const newPassword = prompt('Digite a nova senha para este usuário. Atenção: no mínimo 8 caracteres incluindo letras maiúsculas, minúsculas e números.');
+        if (!newPassword) return;
+        setLoading(true); setError(''); setMessage('');
+        try {
+            const res = await fetch(`/api/manager/users/${id}/reset-password`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ newPassword }),
+            });
+            const data = await res.json();
+            if (res.ok) setMessage('Senha redefinida com sucesso.');
+            else setError(data.error);
+        } catch { setError('Erro ao redefinir senha.'); } finally { setLoading(false); }
+    }
+
+    async function handleDisableTotp(id: number) {
+        if (!confirm('Tem certeza que deseja desativar o TOTP deste usuário?')) return;
+        setLoading(true); setError(''); setMessage('');
+        try {
+            const res = await fetch(`/api/manager/users/${id}/disable-totp`, { method: 'POST' });
+            const data = await res.json();
+            if (res.ok) {
+                setMessage('TOTP desativado com sucesso.');
+                fetchUsers(); // Refresh
+            }
+            else setError(data.error);
+        } catch { setError('Erro ao desativar TOTP.'); } finally { setLoading(false); }
+    }
 
     useEffect(() => {
         if (selectedChampId) {
@@ -174,6 +225,7 @@ export default function ManagerPage() {
                         { key: 'rounds', label: '📋 Rodadas' },
                         { key: 'matches', label: '♟ Partidas' },
                         { key: 'results', label: '✅ Resultados' },
+                        { key: 'users', label: '👥 Usuários' },
                     ].map(({ key, label }) => (
                         <button
                             key={key}
@@ -378,6 +430,46 @@ export default function ManagerPage() {
                                 </button>
                             </form>
                         )}
+                    </div>
+                )}
+
+                {tab === 'users' && (
+                    <div className="manager-section">
+                        <h3 className="manager-section-title">Gerenciar Usuários</h3>
+                        <div style={{ marginBottom: '16px' }}>
+                            <input
+                                className="form-input"
+                                placeholder="Buscar por e-mail ou nome..."
+                                value={userSearch}
+                                onChange={e => setUserSearch(e.target.value)}
+                            />
+                        </div>
+                        {users
+                            .filter(u => 
+                                userSearch === '' || 
+                                u.name.toLowerCase().includes(userSearch.toLowerCase()) || 
+                                u.email.toLowerCase().includes(userSearch.toLowerCase())
+                            )
+                            .map(u => (
+                            <div key={u.id} className="card" style={{ padding: '12px 16px', marginBottom: '8px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                                    <div>
+                                        <span style={{ fontWeight: 600 }}>{u.name}</span>
+                                        <span style={{ color: 'var(--text-muted)', marginLeft: '8px' }}>{u.email}</span>
+                                        {u.deletedAt && <span className="match-status finished" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px' }}>Excluído</span>}
+                                        {u.role === 'gerente' && <span className="match-status ongoing" style={{ marginLeft: '8px', padding: '2px 6px', borderRadius: '4px' }}>Gerente</span>}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '8px' }}>
+                                        <button className="btn btn-sm btn-ghost" onClick={() => handleForceReset(u.id)} disabled={!!u.deletedAt}>
+                                            Redefinir Senha
+                                        </button>
+                                        <button className="btn btn-sm btn-secondary" onClick={() => handleDisableTotp(u.id)} disabled={!u.totpEnabled || !!u.deletedAt}>
+                                            Desativar TOTP
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
                     </div>
                 )}
             </main>

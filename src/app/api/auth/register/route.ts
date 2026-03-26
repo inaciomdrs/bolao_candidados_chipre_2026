@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
             );
         }
 
-        // Check if email already exists
+        // Check if email already exists (including soft-deleted accounts)
         const existing = await prisma.user.findUnique({ where: { email: email.toLowerCase() } });
         if (existing) {
             return NextResponse.json(
